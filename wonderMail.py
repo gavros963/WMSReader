@@ -1,5 +1,5 @@
 import zlib
-
+import math
 encryptionData = [
 		0x2E, 0x75, 0x3F, 0x99, 0x09, 0x6C, 0xBC, 0x61, 0x7C, 0x2A, 0x96, 0x4A, 0xF4, 0x6D, 0x29, 0xFA, 
 		0x90, 0x14, 0x9D, 0x33, 0x6F, 0xCB, 0x49, 0x3C, 0x48, 0x80, 0x7B, 0x46, 0x67, 0x01, 0x17, 0x59, 
@@ -30,16 +30,16 @@ byteSwap = [
 	]
 
 def sanitize(wmString):
-    wmString = wmString.upper()
-    outstring = ''
-    for i in wmString:
-        if bitValues.find(i) != -1:
-            outstring = outstring+i
+	wmString = wmString.upper()
+	outstring = ''
+	for i in wmString:
+		if bitValues.find(i) != -1:
+			outstring = outstring+i
         
     
-    if outstring.len != 34:
-        print("sanitized WMS code is %d chars long, should be 34", outstring.len)
-    return outstring
+	if outstring.len != 34:
+		print("sanitized WMS code is %d chars long, should be 34", outstring.len)
+	return outstring
 
 def unscrambleString(wmString, swapArray):
 	outstring = ''
@@ -47,27 +47,57 @@ def unscrambleString(wmString, swapArray):
 		outstring = outstring + wmString[i]    
 	return outstring
 def numToBits(num, outputSize):
-     bits = f'{num:b}' + ''
-     while bits.len < outputSize:
-          bits = '0'+bits
-     return bits
+    bits = f'{num:b}' + ''
+    while bits.len < outputSize:
+        bits = '0'+bits
+    return bits
      
 def bytesToBits(wmIntString):
-     outString = ''
-     for i in reversed(wmIntString):
-          index = bitValues.find(i)
-          if index != -1:
-               outString = outString + numToBits(index, 5)
-          else:
-               raise ValueError
-     return outString
+    outString = ''
+    for i in reversed(wmIntString):
+        index = bitValues.find(i)
+        if index != -1:
+            outString = outString + numToBits(index, 5)
+        else:
+            raise ValueError
+    return outString
+
+
+def getEncryptionEntries(checksum):
+	amount = 17
+	entries = []
+	encPointer = checksum
+	backwards = not(checksum % 2)
+	i = 0
+	while i != amount:
+		entries.append(encryptionData[encPointer])
+		if backwards:
+			encPointer -= 1
+			if encPointer < 0:
+				encPointer = encryptionData.len -1
+		else:
+			encPointer += 1
+			if encPointer >= encryptionData.len:
+				encPointer = 0
+	
+	return entries
+
+
+def getResetByte(checksum):
+	checksumByte = checksum % 256
+	resetByte = math.floor((checksumByte / 16) + 8 + (checksumByte % 16))
+	if resetByte < 17:
+		return -1
+	else:
+		return resetByte
+
 
 def decryptbitstream(curbitstream, encrypt=False):
 	bitPtr = 0
-    
+
 	blocks = []
 	origblocks = []
-     
+
 
 	checksumByte = 0
 	checksumBits = ''
@@ -81,7 +111,62 @@ def decryptbitstream(curbitstream, encrypt=False):
 
 	bitPtr -= 24
 	skyChecksumBits = curbitstream[bitPtr:24]
+	fullChecksum = int((skyChecksumBits + checksumBits), base=2)
+	while bitPtr > 7:
+		bitPtr -= 8
+		data = int(curbitstream[bitPtr:8], base=2)
+		blocks.append(data)
+		origblocks.append(data)
+
+
+
+	twoBitStart = curbitstream[0:2]
+	bitPtr -= 2
+
+
+	entries = getEncryptionEntries(checksumByte)
+
+
+	resetByte = 255
+	resetByte = getResetByte(fullChecksum)
+	# Do the encryption
+	tblPtr = 0
+	encPtr = 0
+	i = 0
+	while i < blocks.len:
+		
+		if encPtr == resetByte:
+			remaining = blocks.len - i
+			encPtr = 0
+		inputByte = blocks[tblPtr]
+
+		result = ''
+
+		if encrypt:
+			result = (inputByte + entries[encPtr]) & 0xFF
+		else:
+			result = (inputByte - entries[encPtr]) & 0xFF
+		
+
+		blocks[i] = result
+
+		tblPtr += 1
+		encPtr += 1
+		i += 1
 	
+	outString = twoBitStart
+	for blockPtr in reversed(blocks):
+		outString += numToBits(blockPtr, 8)
+	
+	outString += skyChecksumBits + checksumBits
+
+	return outString
+
+
+     
+     
+
+
 
 
 
