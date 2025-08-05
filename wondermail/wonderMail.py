@@ -56,22 +56,22 @@ class WMSParser:
 		wmString = wmString.upper()
 		outstring = ''
 		for i in wmString:
-			if bitValues.find(i) != -1:
+			if WMSParser.bitValues.find(i) != -1:
 				outstring = outstring+i
         
     
-		if outstring.len != 34:
-			print("sanitized WMS code is %d chars long, should be 34", outstring.len)
+		if len(outstring) != 34:
+			print("sanitized WMS code is %d chars long, should be 34", len(outstring))
 		return outstring
 
-	def unscrambleString(wmString, swapArray):
+	def unscrambleString(wmString, swapArray=byteSwap):
 		outstring = ''
 		for i in swapArray:
 			outstring = outstring + wmString[i]    
 		return outstring
 	def numToBits(num, outputSize):
 		bits = f'{num:b}' + ''
-		while bits.len < outputSize:
+		while len(bits) < outputSize:
 			bits = '0'+bits
 		return bits
      
@@ -98,11 +98,12 @@ class WMSParser:
 			if backwards:
 				encPointer -= 1
 				if encPointer < 0:
-					encPointer = WMSParser.encryptionData.len -1
+					encPointer = len(WMSParser.encryptionData) -1
 			else:
 				encPointer += 1
-				if encPointer >= WMSParser.encryptionData.len:
+				if encPointer >= len(WMSParser.encryptionData):
 					encPointer = 0
+			i += 1
 	
 		return entries
 
@@ -128,17 +129,17 @@ class WMSParser:
 		skyChecksumBits = ''
 
 
-		bitPtr = curbitstream.len-8
-		checksumBits = curbitstream[bitPtr:8]
+		bitPtr = len(curbitstream)-8
+		checksumBits = curbitstream[bitPtr:bitPtr+8]
 		checksumByte = int(checksumBits, base=2)
 
 
 		bitPtr -= 24
-		skyChecksumBits = curbitstream[bitPtr:24]
+		skyChecksumBits = curbitstream[bitPtr:bitPtr+24]
 		fullChecksum = int((skyChecksumBits + checksumBits), base=2)
 		while bitPtr > 7:
 			bitPtr -= 8
-			data = int(curbitstream[bitPtr:8], base=2)
+			data = int(curbitstream[bitPtr:bitPtr+8], base=2)
 			blocks.append(data)
 			origblocks.append(data)
 
@@ -157,10 +158,10 @@ class WMSParser:
 		tblPtr = 0
 		encPtr = 0
 		i = 0
-		while i < blocks.len:
+		while i < len(blocks):
 		
 			if encPtr == resetByte:
-				remaining = blocks.len - i
+				remaining = len(blocks) - i
 				encPtr = 0
 			inputByte = blocks[tblPtr]
 
@@ -195,7 +196,7 @@ class WMSParser:
 
 
 		for strutInfo in WMSParser.WMSStruct:
-			bitData = bitString[bitPtr:strutInfo['size']]
+			bitData = bitString[bitPtr:bitPtr+strutInfo['size']]
 			bitPtr += strutInfo['size']
 
 
@@ -204,8 +205,8 @@ class WMSParser:
 			outputStrut[strutInfo['name']] = numData
 			outputStrutBit[strutInfo['name']] = bitData
 	
-		if bitPtr != bitString.len:
-			print(f"WARNING: Not all available data was parsed into struct. Final bitPtr is {bitPtr}, length is {bitString.len}")
+		if bitPtr != len(bitString):
+			print(f"WARNING: Not all available data was parsed into struct. Final bitPtr is {bitPtr}, length is {len(bitString)}")
 
 		return outputStrut
 
